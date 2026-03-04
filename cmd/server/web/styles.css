@@ -1,0 +1,123 @@
+:root {
+  --bg: #08131f;
+  --panel: rgba(8, 19, 31, 0.82);
+  --text: #e6eef8;
+  --accent: #2ec4b6;
+  --muted: #99a7b8;
+}
+
+html,
+body {
+  margin: 0;
+  height: 100%;
+  font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+  background: radial-gradient(circle at 20% 0%, #12314f, #08131f 60%);
+  color: var(--text);
+}
+
+body {
+  display: flex;
+  flex-direction: column;
+}
+
+.topbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.75rem 1rem;
+  background: rgba(4, 10, 18, 0.8);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.title {
+  font-weight: 700;
+  letter-spacing: 0.03em;
+}
+
+.controls {
+  display: flex;
+  gap: 0.6rem;
+  align-items: center;
+}
+
+select,
+button {
+  padding: 0.4rem 0.55rem;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  border-radius: 8px;
+  background: rgba(7, 23, 39, 0.95);
+  color: #f5f9ff;
+  font-weight: 600;
+}
+
+button {
+  cursor: pointer;
+  border-color: color-mix(in oklab, var(--accent), white 15%);
+}
+
+select option {
+  background: #0a1e32;
+  color: #f5f9ff;
+}
+
+main {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+}
+
+#map {
+  position: absolute;
+  inset: 0;
+}
+
+.panel {
+  position: absolute;
+  left: 1rem;
+  top: 1rem;
+  z-index: 2;
+  width: 290px;
+  max-height: calc(100% - 2rem);
+  overflow: auto;
+  padding: 0.9rem;
+  background: var(--panel);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 10px;
+  backdrop-filter: blur(4px);
+}
+
+.panel h2 {
+  margin: 0 0 0.6rem;
+  font-size: 1rem;
+}
+
+#info {
+  font-size: 0.9rem;
+  line-height: 1.45;
+}
+
+#info .k {
+  color: var(--muted);
+}
+
+#info .v {
+  color: var(--text);
+  font-weight: 600;
+}
+
+@media (max-width: 900px) {
+  .topbar {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.5rem;
+  }
+  .panel {
+    width: calc(100% - 2rem);
+    max-height: 35%;
+  }
+}
+
+button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}

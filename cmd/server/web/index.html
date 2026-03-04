@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>IGC 3D Flight Viewer</title>
+    <link
+      href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="title">IGC 3D Flight Viewer</div>
+      <div class="controls">
+        <label for="igcFileInput">IGC File</label>
+        <input id="igcFileInput" type="file" accept=".igc" />
+        <button id="uploadBtn">Upload</button>
+        <label for="baseView">View</label>
+        <select id="baseView">
+          <option value="map">Map</option>
+          <option value="satellite" selected>Satellite</option>
+        </select>
+        <label for="playbackSpeed">Speed</label>
+        <select id="playbackSpeed">
+          <option value="0.5" selected>0.5x</option>
+          <option value="0.75">0.75x</option>
+          <option value="1">1.0x</option>
+          <option value="1.25">1.25x</option>
+          <option value="1.5">1.5x</option>
+          <option value="2">2.0x</option>
+        </select>
+        <label for="followCam">Follow Cam</label>
+        <select id="followCam">
+          <option value="off">Off</option>
+          <option value="on" selected>On</option>
+        </select>
+        <button id="playBtn" disabled>Play</button>
+      </div>
+    </header>
+    <main>
+      <aside class="panel" id="infoPanel">
+        <h2>Flight Info</h2>
+        <div id="info"></div>
+      </aside>
+      <section id="map"></section>
+    </main>
+
+    <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
+    <script src="https://unpkg.com/deck.gl@9.0.40/dist.min.js"></script>
+    <script src="/app.js"></script>
+  </body>
+</html>
