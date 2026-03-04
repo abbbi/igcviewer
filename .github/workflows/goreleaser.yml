@@ -26,8 +26,8 @@ jobs:
           distribution: goreleaser
           version: latest
           args: release
-          builds:
-            - main: ./cmd/server/main.go
+        builds:
+          - main: ./cmd/server/main.go
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - name: Upload assets
