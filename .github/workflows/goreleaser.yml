@@ -26,10 +26,10 @@ jobs:
           distribution: goreleaser
           version: latest
           args: release
-        builds:
-          - main: ./cmd/server/main.go
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        builds:
+          main: ./cmd/server/main.go
       - name: Upload assets
         uses: actions/upload-artifact@v4
         with:
