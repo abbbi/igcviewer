@@ -41,8 +41,8 @@ func main() {
 	mux.HandleFunc("/api/flight", handleFlightUpload)
 	mux.Handle("/", staticHandler())
 
-	addr := ":8080"
-	log.Printf("Server listening on http://localhost%s", addr)
+	addr := "localhost:8080"
+	log.Printf("Server listening on http://%s", addr)
 	if err := http.ListenAndServe(addr, mux); err != nil {
 		log.Fatal(err)
 	}
