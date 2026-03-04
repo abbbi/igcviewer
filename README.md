@@ -10,7 +10,7 @@ This project includes:
 ## Run
 
 ```bash
-go run ./cmd/server
+ ./igcviewer
 ```
 
 Then open:
