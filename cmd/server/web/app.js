@@ -226,24 +226,12 @@ function renderDeckLayers(path, marker, detail, revealTrack) {
   deckOverlay.setProps({
     layers: [
       new deck.PathLayer({
-        id: "flight-path-3d-outline",
-        data: visibleSegments,
-        getPath: (d) => d.path,
-        getColor: [15, 23, 42, 245],
-        widthUnits: "meters",
-        getWidth: 34,
-        capRounded: true,
-        jointRounded: true,
-        billboard: false,
-        parameters: { depthTest: true },
-      }),
-      new deck.PathLayer({
         id: "flight-path-3d",
         data: visibleSegments,
         getPath: (d) => d.path,
         getColor: (d) => d.color,
         widthUnits: "meters",
-        getWidth: 24,
+        getWidth: 22,
         capRounded: true,
         jointRounded: true,
         billboard: false,
