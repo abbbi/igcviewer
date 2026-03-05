@@ -9,6 +9,7 @@ const info = document.getElementById("info");
 let deckOverlay;
 let currentPath = [];
 let currentSamples = [];
+let currentSegments = [];
 let cumulativeDistances = [];
 let totalDistanceM = 0;
 let animationFrameId = null;
@@ -21,6 +22,8 @@ const TERRAIN_EXAGGERATION = 1.0;
 const MIN_TERRAIN_CLEARANCE_M = 15;
 const ALTITUDE_VISUAL_OFFSET_M = 10;
 const BASE_PLAYBACK_DURATION_MS = 60000;
+const TRACK_COLOR_DEFAULT = [239, 68, 68, 245];
+const TRACK_COLOR_CLIMB = [255, 184, 108, 250];
 
 const map = new maplibregl.Map({
   container: "map",
@@ -176,15 +179,17 @@ function renderFlight(flight) {
   const end = coords[coords.length - 1];
 
   currentPath = buildAdjustedPath(coords);
+  currentSegments = buildRouteSegments(currentPath, currentSamples);
 
   buildPathMetrics(currentPath);
   playbackProgress = 0;
   playBtn.disabled = false;
   playBtn.textContent = "Play";
+  const startDetail = { position: currentPath[0], segIndex: 1, segT: 0 };
   renderDeckLayers(currentPath, {
     position: currentPath[0],
     angle: initialHeading(currentPath),
-  });
+  }, startDetail, false);
 
   map.getSource("route-points").setData({
     type: "FeatureCollection",
@@ -214,16 +219,31 @@ function renderFlight(flight) {
   updateReplayStats({ speedKmh: 0, climbRateMs: 0, progress: 0, elapsedSec: 0 });
 }
 
-function renderDeckLayers(path, marker) {
+function renderDeckLayers(path, marker, detail, revealTrack) {
+  const visibleSegments = revealTrack
+    ? buildVisibleSegments(currentSegments, detail)
+    : currentSegments;
   deckOverlay.setProps({
     layers: [
       new deck.PathLayer({
-        id: "flight-path-3d",
-        data: [{ path }],
+        id: "flight-path-3d-outline",
+        data: visibleSegments,
         getPath: (d) => d.path,
-        getColor: [239, 68, 68, 245],
+        getColor: [15, 23, 42, 245],
         widthUnits: "meters",
-        getWidth: 22,
+        getWidth: 34,
+        capRounded: true,
+        jointRounded: true,
+        billboard: false,
+        parameters: { depthTest: true },
+      }),
+      new deck.PathLayer({
+        id: "flight-path-3d",
+        data: visibleSegments,
+        getPath: (d) => d.path,
+        getColor: (d) => d.color,
+        widthUnits: "meters",
+        getWidth: 24,
         capRounded: true,
         jointRounded: true,
         billboard: false,
@@ -364,7 +384,7 @@ function tickPlayback(ts) {
   const elapsed = ts - playbackStartTs;
   playbackProgress = clamp(elapsed / getPlaybackDurationMs(), 0, 1);
   const detail = interpolatePathDetailed(currentPath, cumulativeDistances, totalDistanceM, playbackProgress);
-  renderDeckLayers(currentPath, markerFromDetail(detail));
+  renderDeckLayers(currentPath, markerFromDetail(detail), detail, true);
   updateReplayStats(computePlaybackStats(detail));
   if (isFollowCamEnabled()) {
     updateFollowCamera(detail);
@@ -378,6 +398,95 @@ function tickPlayback(ts) {
   }
 
   animationFrameId = requestAnimationFrame(tickPlayback);
+}
+
+function buildVisiblePath(path, detail) {
+  if (!Array.isArray(path) || path.length === 0) {
+    return [];
+  }
+  if (!detail || !detail.position) {
+    return [path[0]];
+  }
+  if (detail.segIndex >= path.length) {
+    return path;
+  }
+
+  const upto = Math.max(1, Math.min(detail.segIndex, path.length - 1));
+  const partial = path.slice(0, upto);
+  partial.push(detail.position);
+  return partial;
+}
+
+function buildRouteSegments(path, samples) {
+  if (!Array.isArray(path) || path.length < 2) {
+    return [];
+  }
+
+  const segMeta = [];
+  const positiveClimbs = [];
+
+  for (let i = 1; i < path.length; i++) {
+    const start = path[i - 1];
+    const end = path[i];
+    let climbRateMs = 0;
+
+    if (samples[i - 1] && samples[i]) {
+      const dt = Math.max((samples[i].timeMs - samples[i - 1].timeMs) / 1000, 0.001);
+      climbRateMs = (samples[i].altM - samples[i - 1].altM) / dt;
+    }
+    if (climbRateMs > 0) {
+      positiveClimbs.push(climbRateMs);
+    }
+
+    segMeta.push({ path: [start, end], climbRateMs });
+  }
+
+  const highlightThreshold = quantile(positiveClimbs, 0.8);
+  return segMeta.map((seg) => ({
+    ...seg,
+    color:
+      Number.isFinite(highlightThreshold) && seg.climbRateMs >= highlightThreshold
+        ? TRACK_COLOR_CLIMB
+        : TRACK_COLOR_DEFAULT,
+  }));
+}
+
+function buildVisibleSegments(segments, detail) {
+  if (!Array.isArray(segments) || segments.length === 0) {
+    return [];
+  }
+  if (!detail || !detail.position) {
+    return [];
+  }
+
+  const fullCount = Math.max(0, Math.min(detail.segIndex - 1, segments.length));
+  const visible = segments.slice(0, fullCount);
+
+  if (detail.segIndex >= 1 && detail.segIndex <= segments.length) {
+    const active = segments[detail.segIndex - 1];
+    const start = active.path[0];
+    visible.push({
+      path: [start, detail.position],
+      color: active.color,
+      climbRateMs: active.climbRateMs,
+    });
+  }
+
+  return visible;
+}
+
+function quantile(values, q) {
+  if (!Array.isArray(values) || values.length === 0) {
+    return Number.NaN;
+  }
+  const sorted = [...values].sort((a, b) => a - b);
+  const pos = (sorted.length - 1) * q;
+  const base = Math.floor(pos);
+  const rest = pos - base;
+  if (sorted[base + 1] !== undefined) {
+    return sorted[base] + rest * (sorted[base + 1] - sorted[base]);
+  }
+  return sorted[base];
 }
 
 function updateFollowCamera(detail) {

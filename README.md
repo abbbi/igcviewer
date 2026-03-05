@@ -41,3 +41,7 @@ https://tile.openstreetmap.org/
 ## Satellite raster
 
 https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/
+
+## JS
+
+ MapLibre + deck.gl from unpkg.com
