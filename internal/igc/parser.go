@@ -28,6 +28,7 @@ type Flight struct {
 	Fixes    []Fix             `json:"fixes"`
 	FixCount int               `json:"fixCount"`
 	MaxClimb int               `json:"MaxClimb"`
+	MaxAlt   int               `json:"MaxAlt"`
 }
 
 // Parse reads an IGC stream and returns structured data.
@@ -45,6 +46,7 @@ func Parse(r io.Reader) (*Flight, error) {
 		lastAltitude   = -1
 		haveFlightDate bool
 		climbRates     []int
+		maxAlt         int
 	)
 
 	for scanner.Scan() {
@@ -78,6 +80,9 @@ func Parse(r io.Reader) (*Flight, error) {
 			}
 
 			lastAltitude = fix.GPSAltM
+			if fix.GPSAltM > maxAlt {
+				maxAlt = fix.GPSAltM
+			}
 
 			if haveFlightDate {
 				fix.Time = flight.Date.Add(time.Duration(rolloverDays)*24*time.Hour +
@@ -92,6 +97,7 @@ func Parse(r io.Reader) (*Flight, error) {
 	slices.Sort(climbRates)
 	flight.MaxClimb = climbRates[len(climbRates)-1]
 	flight.FixCount = len(flight.Fixes)
+	flight.MaxAlt = maxAlt
 	if flight.FixCount == 0 {
 		return nil, fmt.Errorf("no B records found")
 	}

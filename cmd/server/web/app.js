@@ -611,6 +611,7 @@ function renderInfo(flight) {
   const start = formatDate(flight.startTime);
   const end = formatDate(flight.endTime);
   const maxRate = flight.MaxClimb;
+  const maxAlt = flight.MaxAlt;
 
   info.innerHTML = `
     <div><span class="k">File:</span> <span class="v">${escapeHtml(flight.file)}</span></div>
@@ -619,6 +620,7 @@ function renderInfo(flight) {
     <div><span class="k">Start:</span> <span class="v">${escapeHtml(start)}</span></div>
     <div><span class="k">End:</span> <span class="v">${escapeHtml(end)}</span></div>
     <div><span class="k">Max Climb Rate:</span> <span class="v">${escapeHtml(maxRate)} m/s</span></div>
+    <div><span class="k">Max. altitude (MSL):</span> <span class="v">${escapeHtml(maxAlt)}</span></div>
     <hr />
     <div><span class="k">Replay progress:</span> <span class="v" id="progressValue">0.0%</span></div>
     <div><span class="k">Replay elapsed:</span> <span class="v" id="elapsedValue">00:00:00</span></div>

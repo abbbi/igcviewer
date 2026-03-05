@@ -48,6 +48,7 @@ type flightResponse struct {
 	StartTime time.Time         `json:"startTime"`
 	EndTime   time.Time         `json:"endTime"`
 	MaxClimb  int               `json:"MaxClimb"`
+	MaxAlt    int               `json:"MaxAlt"`
 }
 
 type trackSample struct {
@@ -179,6 +180,7 @@ func buildResponse(name string, flight *igc.Flight) (*flightResponse, error) {
 		StartTime: flight.Fixes[0].Time,
 		EndTime:   flight.Fixes[len(flight.Fixes)-1].Time,
 		MaxClimb:  flight.MaxClimb,
+		MaxAlt:    flight.MaxAlt,
 	}
 	return resp, nil
 }
