@@ -606,18 +606,19 @@ function clamp(v, lo, hi) {
 
 function renderInfo(flight) {
   const headers = flight.headers || {};
-  const pilot = headers["FPLTPILOT"] || "Unknown";
-  const glider = headers["FGTYGLIDERTYPE"] || "Unknown";
+  const pilot = headers["FPLTPILOT"] || headers["OPLTPILOT"] || "Unknown";
+  const glider = headers["FGTYGLIDERTYPE"] || headers["OGTYGLIDERTYPE"]|| "Unknown";
   const start = formatDate(flight.startTime);
   const end = formatDate(flight.endTime);
+  const maxRate = flight.MaxClimb;
 
   info.innerHTML = `
     <div><span class="k">File:</span> <span class="v">${escapeHtml(flight.file)}</span></div>
     <div><span class="k">Pilot:</span> <span class="v">${escapeHtml(pilot)}</span></div>
     <div><span class="k">Glider:</span> <span class="v">${escapeHtml(glider)}</span></div>
-    <div><span class="k">Fixes:</span> <span class="v">${flight.fixCount}</span></div>
     <div><span class="k">Start:</span> <span class="v">${escapeHtml(start)}</span></div>
     <div><span class="k">End:</span> <span class="v">${escapeHtml(end)}</span></div>
+    <div><span class="k">Max Climb Rate:</span> <span class="v">${escapeHtml(maxRate)} m/s</span></div>
     <hr />
     <div><span class="k">Replay progress:</span> <span class="v" id="progressValue">0.0%</span></div>
     <div><span class="k">Replay elapsed:</span> <span class="v" id="elapsedValue">00:00:00</span></div>

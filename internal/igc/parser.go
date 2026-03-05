@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"fmt"
 	"io"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -26,6 +27,7 @@ type Flight struct {
 	Headers  map[string]string `json:"headers"`
 	Fixes    []Fix             `json:"fixes"`
 	FixCount int               `json:"fixCount"`
+	MaxClimb int               `json:"MaxClimb"`
 }
 
 // Parse reads an IGC stream and returns structured data.
@@ -40,7 +42,9 @@ func Parse(r io.Reader) (*Flight, error) {
 		lineNum        int
 		rolloverDays   int
 		lastClock      = -1
+		lastAltitude   = -1
 		haveFlightDate bool
+		climbRates     []int
 	)
 
 	for scanner.Scan() {
@@ -68,6 +72,13 @@ func Parse(r io.Reader) (*Flight, error) {
 			}
 			lastClock = clockSec
 
+			if lastAltitude > fix.GPSAltM {
+				curClimbRate := lastAltitude - fix.GPSAltM
+				climbRates = append(climbRates, curClimbRate)
+			}
+
+			lastAltitude = fix.GPSAltM
+
 			if haveFlightDate {
 				fix.Time = flight.Date.Add(time.Duration(rolloverDays)*24*time.Hour +
 					time.Duration(clockSec)*time.Second)
@@ -78,7 +89,8 @@ func Parse(r io.Reader) (*Flight, error) {
 	if err := scanner.Err(); err != nil {
 		return nil, err
 	}
-
+	slices.Sort(climbRates)
+	flight.MaxClimb = climbRates[len(climbRates)-1]
 	flight.FixCount = len(flight.Fixes)
 	if flight.FixCount == 0 {
 		return nil, fmt.Errorf("no B records found")
