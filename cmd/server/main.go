@@ -37,6 +37,8 @@ import (
 //go:embed web/*
 var webFS embed.FS
 
+const maxUploadSize = 20 * 1024 * 1024
+
 type flightResponse struct {
 	File      string            `json:"file"`
 	Date      time.Time         `json:"date"`
@@ -76,8 +78,8 @@ func handleFlightUpload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	r.Body = http.MaxBytesReader(w, r.Body, 20<<20)
-	if err := r.ParseMultipartForm(20 << 20); err != nil {
+	r.Body = http.MaxBytesReader(w, r.Body, maxUploadSize)
+	if err := r.ParseMultipartForm(maxUploadSize); err != nil {
 		http.Error(w, "invalid upload form", http.StatusBadRequest)
 		return
 	}
