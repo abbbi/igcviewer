@@ -5,6 +5,7 @@ const baseViewSelect = document.getElementById("baseView");
 const playbackSpeedSelect = document.getElementById("playbackSpeed");
 const followCamSelect = document.getElementById("followCam");
 const info = document.getElementById("info");
+const topbar = document.querySelector(".topbar");
 
 let deckOverlay;
 let currentPath = [];
@@ -24,6 +25,11 @@ const ALTITUDE_VISUAL_OFFSET_M = 10;
 const BASE_PLAYBACK_DURATION_MS = 60000;
 const TRACK_COLOR_DEFAULT = [239, 68, 68, 245];
 const TRACK_COLOR_CLIMB = [255, 184, 108, 250];
+const FOLLOW_CAM_MAX_ZOOM = 16;
+const FOLLOW_CAM_PITCH_SOFT_LIMIT = 55;
+
+let latestPlaybackDetail = null;
+let syncingFollowCamera = false;
 
 const map = new maplibregl.Map({
   container: "map",
@@ -99,6 +105,13 @@ map.on("load", async () => {
   info.textContent = "Choose an IGC file and click Upload.";
 });
 
+map.on("zoomend", () => {
+  if (syncingFollowCamera || !isFollowCamEnabled() || !latestPlaybackDetail?.position) {
+    return;
+  }
+  updateFollowCamera(latestPlaybackDetail);
+});
+
 uploadBtn.addEventListener("click", async () => {
   const file = igcFileInput.files?.[0];
   if (!file) {
@@ -148,6 +161,13 @@ baseViewSelect.addEventListener("change", () => {
   applyBaseView(baseViewSelect.value);
 });
 
+followCamSelect?.addEventListener("change", () => {
+  if (!isFollowCamEnabled() || !latestPlaybackDetail?.position) {
+    return;
+  }
+  updateFollowCamera(latestPlaybackDetail);
+});
+
 async function uploadFlight(file) {
   const formData = new FormData();
   formData.append("igc", file, file.name);
@@ -186,6 +206,7 @@ function renderFlight(flight) {
   playBtn.disabled = false;
   playBtn.textContent = "Play";
   const startDetail = { position: currentPath[0], segIndex: 1, segT: 0 };
+  latestPlaybackDetail = startDetail;
   renderDeckLayers(currentPath, {
     position: currentPath[0],
     angle: initialHeading(currentPath),
@@ -372,6 +393,7 @@ function tickPlayback(ts) {
   const elapsed = ts - playbackStartTs;
   playbackProgress = clamp(elapsed / getPlaybackDurationMs(), 0, 1);
   const detail = interpolatePathDetailed(currentPath, cumulativeDistances, totalDistanceM, playbackProgress);
+  latestPlaybackDetail = detail;
   renderDeckLayers(currentPath, markerFromDetail(detail), detail, true);
   updateReplayStats(computePlaybackStats(detail));
   if (isFollowCamEnabled()) {
@@ -482,9 +504,21 @@ function updateFollowCamera(detail) {
     return;
   }
   const [lon, lat] = detail.position;
-  map.jumpTo({
-    center: [lon, lat],
-  });
+  const zoom = Math.min(map.getZoom(), FOLLOW_CAM_MAX_ZOOM);
+  const pitch = Math.min(map.getPitch(), FOLLOW_CAM_PITCH_SOFT_LIMIT);
+  const offset = getFollowCamOffset();
+  syncingFollowCamera = true;
+  try {
+    map.jumpTo({ center: [lon, lat], zoom, pitch, offset });
+  } finally {
+    syncingFollowCamera = false;
+  }
+}
+
+function getFollowCamOffset() {
+  const topbarHeight = topbar?.getBoundingClientRect?.().height || 0;
+  // Keep the glider visually centered in the full viewport (including top menu area).
+  return [0, -topbarHeight / 2];
 }
 
 function buildPathMetrics(path) {
