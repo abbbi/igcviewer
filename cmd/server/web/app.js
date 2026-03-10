@@ -76,7 +76,13 @@ const map = new maplibregl.Map({
   antialias: true,
 });
 
-map.addControl(new maplibregl.NavigationControl({ visualizePitch: true }), "top-right");
+map.addControl(new maplibregl.NavigationControl({
+    visualizePitch: true,
+    showCompass: true,
+    showZoom: true,
+    visualizePitch: true,
+    visualizeRoll: true
+}), "top-right");
 
 map.on("load", async () => {
   applyBaseView(baseViewSelect.value);
