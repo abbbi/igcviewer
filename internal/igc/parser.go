@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"fmt"
 	"io"
-	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -27,7 +26,7 @@ type Flight struct {
 	Headers  map[string]string `json:"headers"`
 	Fixes    []Fix             `json:"fixes"`
 	FixCount int               `json:"fixCount"`
-	MaxClimb int               `json:"MaxClimb"`
+	MaxClimb float64           `json:"MaxClimb"`
 	MaxAlt   int               `json:"MaxAlt"`
 }
 
@@ -43,9 +42,10 @@ func Parse(r io.Reader) (*Flight, error) {
 		lineNum        int
 		rolloverDays   int
 		lastClock      = -1
+		lastClockAbs   = -1
 		lastAltitude   = -1
 		haveFlightDate bool
-		climbRates     []int
+		maxClimb       float64
 		maxAlt         int
 	)
 
@@ -73,12 +73,19 @@ func Parse(r io.Reader) (*Flight, error) {
 				rolloverDays++
 			}
 			lastClock = clockSec
+			clockSecAbs := rolloverDays*24*3600 + clockSec
 
-			if lastAltitude > fix.GPSAltM {
-				curClimbRate := lastAltitude - fix.GPSAltM
-				climbRates = append(climbRates, curClimbRate)
+			if lastClockAbs >= 0 {
+				dtSec := float64(clockSecAbs - lastClockAbs)
+				if dtSec > 0 {
+					curClimbRate := float64(fix.GPSAltM-lastAltitude) / dtSec
+					if curClimbRate > maxClimb {
+						maxClimb = curClimbRate
+					}
+				}
 			}
 
+			lastClockAbs = clockSecAbs
 			lastAltitude = fix.GPSAltM
 			if fix.GPSAltM > maxAlt {
 				maxAlt = fix.GPSAltM
@@ -94,8 +101,7 @@ func Parse(r io.Reader) (*Flight, error) {
 	if err := scanner.Err(); err != nil {
 		return nil, err
 	}
-	slices.Sort(climbRates)
-	flight.MaxClimb = climbRates[len(climbRates)-1]
+	flight.MaxClimb = maxClimb
 	flight.FixCount = len(flight.Fixes)
 	flight.MaxAlt = maxAlt
 	if flight.FixCount == 0 {

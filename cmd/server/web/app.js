@@ -585,12 +585,46 @@ function computePlaybackStats(detail) {
   const dt = Math.max((next.timeMs - prev.timeMs) / 1000, 0.001);
   const horizontalM = haversineMeters(prev.lat, prev.lon, next.lat, next.lon);
   const speedKmh = (horizontalM / dt) * 3.6;
-  const climbRateMs = (next.altM - prev.altM) / dt;
 
   const tMs = prev.timeMs + (next.timeMs - prev.timeMs) * detail.segT;
+  const climbRateMs = computeWindowedClimbRateMs(tMs, detail.segIndex, 8000);
   const elapsedSec = Math.max((tMs - currentSamples[0].timeMs) / 1000, 0);
 
   return { speedKmh, climbRateMs, progress: playbackProgress, elapsedSec };
+}
+
+/**
+ * higher precision for climbing rates during replay, 8 seconds
+ **/
+function computeWindowedClimbRateMs(centerTimeMs, segIndex, windowMs) {
+  if (currentSamples.length < 2) {
+    return 0;
+  }
+
+  const halfWindowMs = Math.max(windowMs, 1000) / 2;
+  let left = Math.max(0, segIndex - 1);
+  let right = Math.min(currentSamples.length - 1, segIndex);
+
+  while (left > 0 && centerTimeMs-currentSamples[left].timeMs < halfWindowMs) {
+    left -= 1;
+  }
+  while (
+    right < currentSamples.length - 1 &&
+    currentSamples[right].timeMs-centerTimeMs < halfWindowMs
+  ) {
+    right += 1;
+  }
+
+  if (right <= left) {
+    right = Math.min(left + 1, currentSamples.length - 1);
+  }
+
+  const dtSec = (currentSamples[right].timeMs - currentSamples[left].timeMs) / 1000;
+  if (dtSec <= 0) {
+    return 0;
+  }
+
+  return (currentSamples[right].altM - currentSamples[left].altM) / dtSec;
 }
 
 function updateReplayStats(stats) {
@@ -603,9 +637,14 @@ function updateReplayStats(stats) {
   }
 
   speedEl.textContent = `${stats.speedKmh.toFixed(1)} km/h`;
-  climbEl.textContent = `${stats.climbRateMs >= 0 ? "+" : ""}${stats.climbRateMs.toFixed(2)} m/s`;
+  climbEl.textContent = formatClimbRate(stats.climbRateMs);
   progressEl.textContent = `${(stats.progress * 100).toFixed(1)}%`;
   elapsedEl.textContent = formatDuration(stats.elapsedSec);
+}
+
+function formatClimbRate(climbRateMs) {
+  const rateMs = Number(climbRateMs || 0);
+  return `${rateMs.toFixed(1)} m/s`;
 }
 
 function distance3D(a, b) {
@@ -653,7 +692,7 @@ function renderInfo(flight) {
   const glider = headers["FGTYGLIDERTYPE"] || headers["OGTYGLIDERTYPE"]|| "Unknown";
   const start = formatDate(flight.startTime);
   const end = formatDate(flight.endTime);
-  const maxRate = flight.MaxClimb;
+  const maxRate = Number(flight.MaxClimb || 0);
   const maxAlt = flight.MaxAlt;
 
   info.innerHTML = `
@@ -662,13 +701,13 @@ function renderInfo(flight) {
     <div><span class="k">Glider:</span> <span class="v">${escapeHtml(glider)}</span></div>
     <div><span class="k">Start:</span> <span class="v">${escapeHtml(start)}</span></div>
     <div><span class="k">End:</span> <span class="v">${escapeHtml(end)}</span></div>
-    <div><span class="k">Max Climb Rate:</span> <span class="v">${escapeHtml(maxRate)} m/s</span></div>
+    <div><span class="k">Max Climb Rate:</span> <span class="v">${escapeHtml(formatClimbRate(maxRate))}</span></div>
     <div><span class="k">Max. altitude (MSL):</span> <span class="v">${escapeHtml(maxAlt)}</span></div>
     <hr />
     <div><span class="k">Replay progress:</span> <span class="v" id="progressValue">0.0%</span></div>
     <div><span class="k">Replay elapsed:</span> <span class="v" id="elapsedValue">00:00:00</span></div>
     <div><span class="k">Speed:</span> <span class="v" id="speedValue">0.0 km/h</span></div>
-    <div><span class="k">Climb rate:</span> <span class="v" id="climbValue">+0.00 m/s</span></div>
+    <div><span class="k">Climb rate:</span> <span class="v" id="climbValue">0.0 m/s</span></div>
   `;
 }
 

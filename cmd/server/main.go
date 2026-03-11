@@ -49,7 +49,7 @@ type flightResponse struct {
 	Samples   []trackSample     `json:"samples"`
 	StartTime time.Time         `json:"startTime"`
 	EndTime   time.Time         `json:"endTime"`
-	MaxClimb  int               `json:"MaxClimb"`
+	MaxClimb  float64           `json:"MaxClimb"`
 	MaxAlt    int               `json:"MaxAlt"`
 }
 
