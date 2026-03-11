@@ -409,6 +409,9 @@ function tickPlayback(ts) {
   if (playbackProgress >= 1) {
     isPlaying = false;
     animationFrameId = null;
+    if (followCamSelect) {
+      followCamSelect.value = "off";
+    }
     playBtn.textContent = "Replay";
     return;
   }
