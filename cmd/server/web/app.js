@@ -23,8 +23,19 @@ const TERRAIN_EXAGGERATION = 1.0;
 const MIN_TERRAIN_CLEARANCE_M = 15;
 const ALTITUDE_VISUAL_OFFSET_M = 10;
 const BASE_PLAYBACK_DURATION_MS = 60000;
-const TRACK_COLOR_DEFAULT = [239, 68, 68, 245];
-const TRACK_COLOR_CLIMB = [255, 184, 108, 250];
+const TRACK_COLOR_CLIMB = [239, 68, 68, 245];
+const TRACK_COLOR_DEFAULT = [255, 184, 108, 250];
+const TRACK_WIDTH_METERS = 22;
+const TRACK_STYLE_ZOOM_FAR = 8;
+const TRACK_STYLE_ZOOM_NEAR = 14;
+const TRACK_STYLE_ZOOM_VERY_NEAR_START = 15;
+const TRACK_STYLE_ZOOM_VERY_NEAR_END = 18;
+const TRACK_WIDTH_SCALE_FAR = 1.65;
+const TRACK_WIDTH_SCALE_NEAR = 1.0;
+const TRACK_WIDTH_SCALE_VERY_NEAR = 0.82;
+const TRACK_MAIN_MIN_PIXELS_FAR = 5;
+const TRACK_MAIN_MIN_PIXELS_NEAR = 2;
+const TRACK_MAIN_MIN_PIXELS_VERY_NEAR = 1.5;
 const FOLLOW_CAM_MAX_ZOOM = 16;
 const FOLLOW_CAM_PITCH_SOFT_LIMIT = 55;
 
@@ -116,6 +127,10 @@ map.on("zoomend", () => {
     return;
   }
   updateFollowCamera(latestPlaybackDetail);
+});
+
+map.on("zoom", () => {
+  rerenderTrackForCurrentState();
 });
 
 uploadBtn.addEventListener("click", async () => {
@@ -250,6 +265,7 @@ function renderDeckLayers(path, marker, detail, revealTrack) {
   const visibleSegments = revealTrack
     ? buildVisibleSegments(currentSegments, detail)
     : currentSegments;
+  const trackStyle = getTrackStyleForZoom();
   deckOverlay.setProps({
     layers: [
       new deck.PathLayer({
@@ -258,7 +274,9 @@ function renderDeckLayers(path, marker, detail, revealTrack) {
         getPath: (d) => d.path,
         getColor: (d) => d.color,
         widthUnits: "meters",
-        getWidth: 22,
+        getWidth: TRACK_WIDTH_METERS,
+        widthScale: trackStyle.widthScale,
+        widthMinPixels: trackStyle.mainMinPixels,
         capRounded: true,
         jointRounded: true,
         billboard: false,
@@ -280,6 +298,38 @@ function renderDeckLayers(path, marker, detail, revealTrack) {
       }),
     ],
   });
+}
+
+function getTrackStyleForZoom() {
+  const zoomT = clamp(
+    (map.getZoom() - TRACK_STYLE_ZOOM_FAR) / (TRACK_STYLE_ZOOM_NEAR - TRACK_STYLE_ZOOM_FAR),
+    0,
+    1
+  );
+  const veryNearT = clamp(
+    (map.getZoom() - TRACK_STYLE_ZOOM_VERY_NEAR_START) /
+      (TRACK_STYLE_ZOOM_VERY_NEAR_END - TRACK_STYLE_ZOOM_VERY_NEAR_START),
+    0,
+    1
+  );
+
+  const nearWidthScale = lerp(TRACK_WIDTH_SCALE_FAR, TRACK_WIDTH_SCALE_NEAR, zoomT);
+  const nearMinPixels = lerp(TRACK_MAIN_MIN_PIXELS_FAR, TRACK_MAIN_MIN_PIXELS_NEAR, zoomT);
+
+  return {
+    widthScale: lerp(nearWidthScale, TRACK_WIDTH_SCALE_VERY_NEAR, veryNearT),
+    mainMinPixels: lerp(nearMinPixels, TRACK_MAIN_MIN_PIXELS_VERY_NEAR, veryNearT),
+  };
+}
+
+function rerenderTrackForCurrentState() {
+  if (!deckOverlay || currentPath.length < 2) {
+    return;
+  }
+
+  const detail = latestPlaybackDetail || { position: currentPath[0], segIndex: 1, segT: 0 };
+  const revealTrack = isPlaying || (playbackProgress > 0 && playbackProgress < 1);
+  renderDeckLayers(currentPath, markerFromDetail(detail), detail, revealTrack);
 }
 
 function createParagliderIcon() {
