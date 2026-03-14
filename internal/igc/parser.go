@@ -30,6 +30,10 @@ type Flight struct {
 	MaxAlt   int               `json:"MaxAlt"`
 }
 
+// Use a window of 20 seconds to computate the maximum
+// climb rate. Otherwise it would show possible spikes.
+const maxClimbWindowSec = 20.0
+
 // Parse reads an IGC stream and returns structured data.
 func Parse(r io.Reader) (*Flight, error) {
 	scanner := bufio.NewScanner(r)
@@ -42,11 +46,10 @@ func Parse(r io.Reader) (*Flight, error) {
 		lineNum        int
 		rolloverDays   int
 		lastClock      = -1
-		lastClockAbs   = -1
-		lastAltitude   = -1
 		haveFlightDate bool
-		maxClimb       float64
 		maxAlt         int
+		clockSecsAbs   = make([]int, 0, 2048)
+		gpsAltsM       = make([]int, 0, 2048)
 	)
 
 	for scanner.Scan() {
@@ -74,19 +77,8 @@ func Parse(r io.Reader) (*Flight, error) {
 			}
 			lastClock = clockSec
 			clockSecAbs := rolloverDays*24*3600 + clockSec
-
-			if lastClockAbs >= 0 {
-				dtSec := float64(clockSecAbs - lastClockAbs)
-				if dtSec > 0 {
-					curClimbRate := float64(fix.GPSAltM-lastAltitude) / dtSec
-					if curClimbRate > maxClimb {
-						maxClimb = curClimbRate
-					}
-				}
-			}
-
-			lastClockAbs = clockSecAbs
-			lastAltitude = fix.GPSAltM
+			clockSecsAbs = append(clockSecsAbs, clockSecAbs)
+			gpsAltsM = append(gpsAltsM, fix.GPSAltM)
 			if fix.GPSAltM > maxAlt {
 				maxAlt = fix.GPSAltM
 			}
@@ -101,13 +93,73 @@ func Parse(r io.Reader) (*Flight, error) {
 	if err := scanner.Err(); err != nil {
 		return nil, err
 	}
-	flight.MaxClimb = maxClimb
+	flight.MaxClimb = computeMaxWindowedClimbRate(clockSecsAbs, gpsAltsM, maxClimbWindowSec)
 	flight.FixCount = len(flight.Fixes)
 	flight.MaxAlt = maxAlt
 	if flight.FixCount == 0 {
 		return nil, fmt.Errorf("no B records found")
 	}
 	return flight, nil
+}
+
+// for each sample time, use a symmetric time window and derive climb
+// rate from the left/right boundary samples.
+func computeMaxWindowedClimbRate(timesSec []int, altsM []int, windowSec float64) float64 {
+	n := len(timesSec)
+	if n < 2 || len(altsM) != n {
+		return 0
+	}
+	halfWindowSec := windowSec / 2
+	if halfWindowSec < 0.5 {
+		halfWindowSec = 0.5
+	}
+
+	maxClimb := 0.0
+	foundWindow := false
+	fallbackMax := 0.0
+	for i := 0; i < n; i++ {
+		center := float64(timesSec[i])
+		left := i - 1
+		if left < 0 {
+			left = 0
+		}
+		right := i
+		if right > n-1 {
+			right = n - 1
+		}
+
+		for left > 0 && center-float64(timesSec[left]) < halfWindowSec {
+			left--
+		}
+		for right < n-1 && float64(timesSec[right])-center < halfWindowSec {
+			right++
+		}
+		if right <= left {
+			right = left + 1
+			if right >= n {
+				right = n - 1
+			}
+		}
+
+		dtSec := float64(timesSec[right] - timesSec[left])
+		if dtSec <= 0 {
+			continue
+		}
+		curClimb := float64(altsM[right]-altsM[left]) / dtSec
+		if curClimb > fallbackMax {
+			fallbackMax = curClimb
+		}
+		if dtSec >= windowSec {
+			foundWindow = true
+			if curClimb > maxClimb {
+				maxClimb = curClimb
+			}
+		}
+	}
+	if !foundWindow {
+		return fallbackMax
+	}
+	return maxClimb
 }
 
 func parseDateHeader(line string) (time.Time, bool) {
