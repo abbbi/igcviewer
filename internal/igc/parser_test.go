@@ -1,6 +1,8 @@
 package igc
 
 import (
+	"fmt"
+	"math"
 	"strings"
 	"testing"
 )
@@ -30,3 +32,28 @@ func TestParseBasic(t *testing.T) {
 	}
 }
 
+func TestParseMaxClimbUsesWindowedSmoothing(t *testing.T) {
+	var b strings.Builder
+	b.WriteString("HFDTE020623\n")
+
+	for sec := 0; sec <= 24; sec++ {
+		alt := 1000 + 4*sec
+		// Inject a one-second spike (+7 m in 1 s), then return to baseline trend.
+		if sec == 10 {
+			alt += 3
+		}
+
+		line := fmt.Sprintf("B1200%02d4739821N01147631EA%05d%05d\n", sec, alt, alt)
+		b.WriteString(line)
+	}
+
+	flight, err := Parse(strings.NewReader(b.String()))
+	if err != nil {
+		t.Fatalf("Parse failed: %v", err)
+	}
+
+	const want = 4.0
+	if math.Abs(flight.MaxClimb-want) > 0.001 {
+		t.Fatalf("expected windowed max climb %.1f m/s, got %.3f", want, flight.MaxClimb)
+	}
+}
