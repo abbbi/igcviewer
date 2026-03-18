@@ -5,7 +5,7 @@
 This project includes:
 - A Go parser for `.igc` flight logs
 - A local web server with API endpoints
-- A browser frontend that renders the flight route on 3D terrain
+- A browser frontend that renders the flight route on 3D terrain (+ replay)
 
 ## Run
 
